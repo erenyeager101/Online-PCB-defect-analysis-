@@ -8,7 +8,7 @@
 
 An intelligent PCB (Printed Circuit Board) defect detection system using deep learning and computer vision. This project leverages MobileNet architecture with transfer learning to identify defects in PCB images with 95.71% validation accuracy.
 
-![PCB Examples](https://user-images.githubusercontent.com/47279340/125171710-2761c500-e1d3-11eb-93e1-c444fd3c78bf.jpeg)
+![PCB Examples](images/pcb.jpeg)
 
 ---
 
@@ -33,6 +33,8 @@ An intelligent PCB (Printed Circuit Board) defect detection system using deep le
 - **High Accuracy**: 95.71% validation accuracy using MobileNet with transfer learning
 - **Real-time Detection**: Fast inference for quick PCB quality assessment
 - **Web Interface**: User-friendly Flask-based web application
+- **Better UI/UX**: Clean navigation, responsive layouts, and accessible components
+- **Explainable AI (XAI)**: Optional Grad-CAM overlays to visualize defect regions
 - **Interactive Dashboard**: View analytics, compare results, and provide feedback
 - **Data Augmentation**: Robust model training with diverse image transformations
 - **Easy Deployment**: Simple setup with Docker support (optional)
@@ -100,8 +102,8 @@ Defect-Detection-of-PCB/
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Defect-Detection-of-PCB.git
-cd Defect-Detection-of-PCB
+git clone https://github.com/erenyeager101/Online-PCB-defect-analysis-.git
+cd Defect-Detection-of-PCB-main
 ```
 
 ### Step 2: Create Virtual Environment
@@ -229,7 +231,7 @@ print(f"Result: {result}")
 | **Precision** | 94.8% |
 | **Recall** | 96.3% |
 
-![Training Graphs](https://user-images.githubusercontent.com/47279340/125171519-4c096d00-e1d2-11eb-820e-4da9a63aaee6.png)
+![Training Graphs](images/train_accuracy.png)
 
 ---
 
@@ -250,15 +252,19 @@ print(f"Result: {result}")
 - **Frontend**: Bootstrap 5, HTML5, CSS3, JavaScript
 - **ML Framework**: TensorFlow/Keras
 - **Data Processing**: NumPy, Pandas, PIL
+ - **XAI**: Grad-CAM visualization (optional), OpenCV overlays (optional)
 
 ### Screenshots
 
 <div align="center">
-<kbd><img src="https://user-images.githubusercontent.com/47279340/125175412-8cc0b080-e1e9-11eb-87be-bb04da89742d.png" width="700"></kbd>
+<kbd><img src="images/interface.png" width="700"/></kbd>
 <p><i>Upload Interface</i></p>
 
-<kbd><img src="https://user-images.githubusercontent.com/47279340/125176421-d5c83300-e1f0-11eb-9ea6-2428b48cfcaf.png" width="700"></kbd>
+<kbd><img src="images/detection.png" width="700"/></kbd>
 <p><i>Prediction Results</i></p>
+
+<kbd><img src="images/xai.png" width="700"/></kbd>
+<p><i>XAI: Grad-CAM heatmap highlighting suspected defect regions</i></p>
 </div>
 
 ---
@@ -291,7 +297,7 @@ print(f"Result: {result}")
 The model successfully identifies both good and defective PCBs:
 
 <div align="center">
-<img src="https://user-images.githubusercontent.com/47279340/125174250-9c3bfb80-e1e1-11eb-8c8a-b8ec1b718708.png" width="700">
+<img src="images/detection.png" width="700">
 <p><i>Prediction examples showing good and defective PCBs</i></p>
 </div>
 
@@ -326,13 +332,7 @@ We welcome contributions from the community! Please see our [Contributing Guidel
 - 🧪 Additional test coverage
 - 🔧 Performance optimizations
 
----
 
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
 
 ## 🙏 Acknowledgments
 
@@ -346,8 +346,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact & Support
 
-- **Issues**: [GitHub Issues](https://github.com/YOUR_USERNAME/Defect-Detection-of-PCB/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_USERNAME/Defect-Detection-of-PCB/discussions)
+- **Issues**: [GitHub Issues](https://github.com/erenyeager101/Online-PCB-defect-analysis-/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/erenyeager101/Online-PCB-defect-analysis-/discussions)
 
 ---
 
@@ -380,8 +380,6 @@ If you use this project in your research or work, please cite:
 
 ---
 
-<div align="center">
-Made with ❤️ by the PCB Defect Detection Team
 
 **⭐ Star this repository if you find it helpful!**
 </div>
