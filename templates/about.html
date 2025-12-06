@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>About - PCB Defect Detector</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+    <style>
+        body { padding-top: 2rem; }
+        .hero { background: #1d3557; color: #fff; padding: 2rem; border-radius: 8px; }
+        .feature-icon { font-size: 2.5rem; }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+  <a class="navbar-brand" href="/">PCB Inspector</a>
+  <div class="collapse navbar-collapse">
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+      <li class="nav-item active"><a class="nav-link" href="/about">About</a></li>
+    </ul>
+  </div>
+</nav>
+<div class="container">
+  <div class="hero mb-4">
+    <h1>About This Application</h1>
+    <p class="lead">This tool performs real-time PCB defect classification using a pre-trained deep learning model. It also provides an explainability overlay (Grad-CAM) to highlight influential regions.</p>
+  </div>
+  <div class="row">
+    <div class="col-md-4 mb-3">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Fast Inference</h5>
+          <p class="card-text">Optimized preprocessing enables quick, single-image predictions with confidence scoring.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Explainability</h5>
+          <p class="card-text">Grad-CAM visualization reveals where the network focuses when identifying defects.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Secure Uploads</h5>
+          <p class="card-text">Files are sanitized and stored with unique IDs to prevent collisions and overwrites.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row mt-4">
+    <div class="col">
+      <h4>How It Works</h4>
+      <ol>
+        <li>Upload a PCB image (JPEG/PNG).</li>
+        <li>The model predicts defect presence and returns a label + confidence.</li>
+        <li>Grad-CAM highlights regions contributing most to the prediction.</li>
+      </ol>
+    </div>
+  </div>
+  <footer class="mt-5 text-center text-muted">
+    <small>PCB Defect Detector &copy; Team Group 10 TY IT C</small>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Create a file legacy-reqs.txt (if not still present) or reuse previous pins:
+
+flask==2.0.3
+tensorflow-cpu
+tensorflow-estimator
+numpy==1.23.5
+h5py==3.8.0
+Pillow==8.4.0
+protobuf==3.20.*
+# Optional:
+# opencv-python==4.8.0.76
+# pandas==1.5.3

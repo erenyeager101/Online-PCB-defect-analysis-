@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Interactive Visualizer</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+	<style>
+		body { background:#f7f9fc; }
+		.toolbar { background:#fff; border-radius:12px; padding:10px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+		#stage { background:#fff; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); height:70vh; position:relative; overflow:hidden; }
+		#canvas { position:absolute; left:0; top:0; }
+		.badge-mode { cursor:pointer; }
+	</style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+	<a class="navbar-brand" href="/">PCB Inspector</a>
+	<div class="collapse navbar-collapse">
+		<ul class="navbar-nav mr-auto">
+			<li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+			<li class="nav-item"><a class="nav-link" href="/about">About</a></li>
+		</ul>
+	</div>
+	<button class="btn btn-outline-light btn-sm" onclick="history.back()">Back</button>
+	</nav>
+
+<div class="container my-3">
+	<div class="row">
+		<div class="col-lg-8 mb-3">
+			<div class="toolbar mb-2 d-flex align-items-center justify-content-between">
+				<div>
+					<strong>Layer:</strong>
+					<div class="btn-group btn-group-toggle ml-2" data-toggle="buttons">
+						<label class="btn btn-sm btn-outline-primary active"><input type="radio" name="layer" value="orig" checked> Original</label>
+						<label class="btn btn-sm btn-outline-primary"><input type="radio" name="layer" value="cam"> Grad-CAM</label>
+						<label class="btn btn-sm btn-outline-primary"><input type="radio" name="layer" value="sal"> Saliency</label>
+						<label class="btn btn-sm btn-outline-primary"><input type="radio" name="layer" value="ig"> Integrated Gradients</label>
+					</div>
+				</div>
+				<div>
+					<span class="badge badge-secondary badge-mode" id="mode-pan">Pan/Zoom</span>
+					<span class="badge badge-info badge-mode" id="mode-measure">Measure</span>
+					<span class="badge badge-warning badge-mode" id="mode-explain">Click to Explain</span>
+				</div>
+			</div>
+			<div id="stage">
+				<canvas id="canvas"></canvas>
+			</div>
+			<small class="text-muted d-block mt-2">Scroll to zoom. Drag to pan. In Measure mode, click two points to measure pixels. Click to Explain sends the point to the server to get a localized explanation value.</small>
+		</div>
+		<div class="col-lg-4">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<h5 class="card-title">Details</h5>
+					<div id="details">Select a mode and interact with the image.</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const imgURL = "{{ user_image or '' }}";
+	const camURL = "{{ cam_image or '' }}";
+	const salURL = "{{ sal_image or '' }}";
+	const igURL = "{{ ig_image or '' }}";
+
+	const canvas = document.getElementById('canvas');
+	const ctx = canvas.getContext('2d');
+	const stage = document.getElementById('stage');
+	let mode = 'pan';
+	let scale = 1.0;
+	let ox = 0, oy = 0; // pan offset
+	let dragging = false; let lx=0, ly=0;
+	let startMeasure = null;
+	let currentImg = new Image();
+
+	function setCanvasSize(){
+		canvas.width = stage.clientWidth;
+		canvas.height = stage.clientHeight;
+		draw();
+	}
+	window.addEventListener('resize', setCanvasSize);
+	setCanvasSize();
+
+	function activeLayer(){
+		const v = document.querySelector('input[name="layer"]:checked').value;
+		if (v==='cam' && camURL) return camURL;
+		if (v==='sal' && salURL) return salURL;
+		if (v==='ig' && igURL) return igURL;
+		return imgURL;
+	}
+
+	function loadLayer(){
+		currentImg.src = activeLayer();
+		currentImg.onload = draw;
+	}
+	document.querySelectorAll('input[name="layer"]').forEach(r=>r.addEventListener('change', loadLayer));
+	loadLayer();
+
+	function draw(){
+		ctx.clearRect(0,0,canvas.width,canvas.height);
+		if (!currentImg.width) return;
+		const iw = currentImg.width, ih = currentImg.height;
+		const cx = canvas.width/2, cy = canvas.height/2;
+		const dx = cx - (iw*scale)/2 + ox; const dy = cy - (ih*scale)/2 + oy;
+		ctx.imageSmoothingEnabled = true;
+		ctx.drawImage(currentImg, dx, dy, iw*scale, ih*scale);
+		if (startMeasure){ ctx.fillStyle = 'rgba(255,0,0,.6)'; ctx.beginPath(); ctx.arc(startMeasure.x, startMeasure.y, 4, 0, Math.PI*2); ctx.fill(); }
+	}
+
+	function canvasToImageCoords(px, py){
+		const iw = currentImg.width, ih = currentImg.height;
+		const cx = canvas.width/2, cy = canvas.height/2;
+		const dx = cx - (iw*scale)/2 + ox; const dy = cy - (ih*scale)/2 + oy;
+		const ix = (px - dx) / scale; const iy = (py - dy) / scale;
+		return {ix, iy};
+	}
+
+	stage.addEventListener('wheel', (e)=>{
+		e.preventDefault();
+		const delta = Math.sign(e.deltaY);
+		const factor = 1.1;
+		const mx = e.offsetX, my = e.offsetY;
+		const {ix, iy} = canvasToImageCoords(mx, my);
+		const prevScale = scale;
+		scale = Math.min(5, Math.max(0.2, scale * (delta>0? 1/factor : factor)));
+		// keep point under mouse stable
+		const iw = currentImg.width, ih = currentImg.height;
+		const cx = canvas.width/2, cy = canvas.height/2;
+		const dx1 = cx - (iw*prevScale)/2 + ox; const dy1 = cy - (ih*prevScale)/2 + oy;
+		const dx2 = mx - ix*scale; const dy2 = my - iy*scale;
+		ox = dx2 - (cx - (iw*scale)/2);
+		oy = dy2 - (cy - (ih*scale)/2);
+		draw();
+	}, {passive:false});
+
+	stage.addEventListener('mousedown', (e)=>{ dragging = true; lx = e.offsetX; ly = e.offsetY; });
+	stage.addEventListener('mouseup', (e)=>{ dragging = false; });
+	stage.addEventListener('mouseleave', ()=>{ dragging=false; });
+	stage.addEventListener('mousemove', (e)=>{
+		if (mode==='pan' && dragging){ ox += (e.offsetX - lx); oy += (e.offsetY - ly); lx = e.offsetX; ly = e.offsetY; draw(); }
+	});
+
+	document.getElementById('mode-pan').onclick = ()=>{ mode='pan'; };
+	document.getElementById('mode-measure').onclick = ()=>{ mode='measure'; startMeasure=null; draw(); };
+	document.getElementById('mode-explain').onclick = ()=>{ mode='explain'; };
+
+	stage.addEventListener('click', async (e)=>{
+		const x = e.offsetX, y = e.offsetY;
+		if (mode==='measure'){
+			if (!startMeasure){ startMeasure = {x,y}; draw(); }
+			else {
+				const dx = x - startMeasure.x, dy = y - startMeasure.y;
+				const px = Math.sqrt(dx*dx + dy*dy);
+				const d = document.getElementById('details');
+				d.innerHTML = `<div><strong>Measurement</strong>: ${px.toFixed(1)} px</div>`;
+				// Draw line
+				ctx.strokeStyle = 'red'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(startMeasure.x, startMeasure.y); ctx.lineTo(x,y); ctx.stroke();
+				startMeasure = null;
+			}
+		} else if (mode==='explain') {
+			// convert to image coords
+			const {ix, iy} = canvasToImageCoords(x, y);
+			const layer = document.querySelector('input[name="layer"]:checked').value;
+			// call lightweight explain api
+			try {
+				const res = await fetch('/api/explain', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+					x: ix, y: iy, layer: layer, img: imgURL, cam: camURL, sal: salURL, ig: igURL
+				})});
+				const js = await res.json();
+				document.getElementById('details').innerHTML = `<div><strong>Explain</strong><br/>Layer: ${layer}<br/>Focus score: ${js.score?.toFixed(3)}<br/>Note: ${js.note || '—'}</div>`;
+			} catch(err){ console.error(err); }
+		}
+	});
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Live Detection Dashboard</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+	<style>
+		body { background:#f4f6f9; }
+		.panel { background:#fff; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+		#video, #liveImg { width:100%; border-radius:12px; }
+	</style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+	<a class="navbar-brand" href="/">PCB Inspector</a>
+	<div class="collapse navbar-collapse">
+		<ul class="navbar-nav mr-auto">
+			<li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+			<li class="nav-item"><a class="nav-link" href="/about">About</a></li>
+		</ul>
+	</div>
+</nav>
+
+<div class="container my-4">
+	<div class="row">
+		<div class="col-lg-7 mb-3">
+			<div class="panel p-3">
+				<h5>Camera</h5>
+				<video id="video" autoplay muted playsinline></video>
+				<canvas id="frame" style="display:none"></canvas>
+				<div class="mt-2 d-flex">
+					<button id="start" class="btn btn-primary btn-sm mr-2">Start</button>
+					<button id="pause" class="btn btn-outline-secondary btn-sm">Pause</button>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-5">
+			<div class="panel p-3 mb-3">
+				<h5>Prediction</h5>
+				<div><strong>Label:</strong> <span id="label">—</span></div>
+				<div><strong>Confidence:</strong> <span id="conf">—</span></div>
+				<img id="liveImg" class="mt-2" />
+			</div>
+			<div class="panel p-3">
+				<h5>Stats</h5>
+				<div>Total: <span id="total">0</span></div>
+				<div>Good: <span id="good">0</span> | Bad: <span id="bad">0</span></div>
+				<div>Avg Confidence: <span id="avg">0</span></div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const video = document.getElementById('video');
+	const canvas = document.getElementById('frame');
+	const ctx = canvas.getContext('2d');
+	let running = false; let timer = null;
+
+	async function initCam(){
+		const stream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+		video.srcObject = stream;
+	}
+	initCam().catch(console.error);
+
+	async function tick(){
+		if (!running) return;
+		canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+		ctx.drawImage(video, 0, 0);
+		const data = canvas.toDataURL('image/jpeg', 0.7);
+		try {
+			const r = await fetch('/api/live_predict', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image:data})});
+			const j = await r.json();
+			if (j.ok){
+				document.getElementById('label').textContent = j.label;
+				document.getElementById('conf').textContent = (j.confidence*100).toFixed(1)+'%';
+				document.getElementById('liveImg').src = j.image;
+				// refresh analytics summary
+				refreshStats();
+			}
+		} catch(e){ console.error(e); }
+		timer = setTimeout(tick, 400);
+	}
+
+	function start(){ if (!running){ running = true; tick(); } }
+	function pause(){ running = false; if (timer) clearTimeout(timer); }
+	document.getElementById('start').onclick = start;
+	document.getElementById('pause').onclick = pause;
+
+	async function refreshStats(){
+		try {
+			const r = await fetch('/api/analytics');
+			const j = await r.json();
+			document.getElementById('total').textContent = j.total;
+			document.getElementById('good').textContent = j.good;
+			document.getElementById('bad').textContent = j.bad;
+			document.getElementById('avg').textContent = (j.avg_confidence*100).toFixed(1)+'%';
+		} catch(e){ }
+	}
+	refreshStats();
+</script>
+</body>
+</html>
