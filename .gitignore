@@ -85,6 +85,9 @@ static/uploads/*
 temp/
 tmp/
 
+.*dataset/
+data/*
+
 # OS specific
 Thumbs.db
 .DS_Store

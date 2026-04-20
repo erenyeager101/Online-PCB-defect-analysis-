@@ -1,54 +1,123 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Analytics</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Data Analytics | PCB Inspector</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
-<body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <a class="navbar-brand" href="/">PCB Inspector</a>
-  <div class="collapse navbar-collapse">
-    <ul class="navbar-nav mr-auto">
-      <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
-      <li class="nav-item"><a class="nav-link" href="/dashboard">Live</a></li>
-    </ul>
-  </div>
+<body class="hero-gradient">
+
+<nav class="navbar navbar-expand-lg navbar-light sticky-top">
+    <div class="container">
+        <a class="navbar-brand d-flex align-items-center" href="/">
+            <i data-lucide="microchip" class="me-2"></i>
+            PCB INSPECTOR
+        </a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/">Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link" href="/dashboard">Live Feed</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/analytics">Analytics</a></li>
+                <li class="nav-item"><a class="nav-link" href="/about">Technology</a></li>
+            </ul>
+        </div>
+    </div>
 </nav>
-<div class="container my-4">
-  <div class="row">
-    <div class="col-lg-6 mb-3">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Defect Distribution</h5>
-          <canvas id="dist"></canvas>
+
+<main class="container my-5 animate-fade-in">
+    <h2 class="fw-bold mb-4 d-flex align-items-center">
+        <i data-lucide="pie-chart" class="me-3 text-primary"></i>
+        Production Analytics
+    </h2>
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="premium-card h-100">
+                <h5 class="mb-4 text-muted fw-semibold">Defect Distribution</h5>
+                <div style="height: 300px; display: flex; justify-content: center;">
+                    <canvas id="dist"></canvas>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-    <div class="col-lg-6 mb-3">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Recent Confidence</h5>
-          <canvas id="conf"></canvas>
+        <div class="col-lg-6">
+            <div class="premium-card h-100">
+                <h5 class="mb-4 text-muted fw-semibold">Recent Confidence Trends</h5>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="conf"></canvas>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
-  </div>
-</div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-async function loadStats(){
-  const r = await fetch('/api/analytics');
-  const j = await r.json();
-  const distCtx = document.getElementById('dist');
-  new Chart(distCtx, {type:'pie', data:{labels:['Good','Bad'], datasets:[{data:[j.good, j.bad], backgroundColor:['#2a9d8f','#e76f51']}]} });
-  const confCtx = document.getElementById('conf');
-  const labels = j.recent.map(x=>x.t.substring(11,19));
-  const data = j.recent.map(x=>x.confidence*100);
-  new Chart(confCtx, {type:'line', data:{labels, datasets:[{label:'Confidence % (recent)', data, borderColor:'#457b9d'}]}, options:{scales:{y:{min:0,max:100}}} });
-}
-loadStats();
+    lucide.createIcons();
+    
+    async function loadStats() {
+        try {
+            const r = await fetch('/api/analytics');
+            const j = await r.json();
+            
+            const distCtx = document.getElementById('dist');
+            new Chart(distCtx, {
+                type: 'doughnut', 
+                data: {
+                    labels: ['Good Quality', 'Defects Found'], 
+                    datasets: [{
+                        data: [j.good, j.bad], 
+                        backgroundColor: ['#10b981', '#ef4444'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { family: "'Inter', sans-serif" } } }
+                    }
+                }
+            });
+            
+            const confCtx = document.getElementById('conf');
+            const labels = j.recent.map(x => x.t.substring(11,19));
+            const data = j.recent.map(x => x.confidence*100);
+            new Chart(confCtx, {
+                type: 'line', 
+                data: {
+                    labels, 
+                    datasets: [{
+                        label: 'Model Confidence (%)', 
+                        data, 
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#3b82f6',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                }, 
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { min: 0, max: 100, grid: { borderDash: [4, 4] } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { font: { family: "'Inter', sans-serif" } } }
+                    }
+                }
+            });
+        } catch (e) { console.error('Failed to load stats:', e); }
+    }
+    loadStats();
 </script>
 </body>
 </html>

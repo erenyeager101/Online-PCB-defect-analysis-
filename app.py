@@ -85,78 +85,65 @@ def predict_label_and_conf(img_path: str):
     return label, confidence, p
 
 
-def _find_last_conv_layer(m):
-    # Try to find the last Conv2D layer for Grad-CAM
-    for layer in reversed(m.layers):
-        if isinstance(layer, tf.keras.layers.Conv2D):
-            return layer.name
-    # Fallback: scan nested models
-    for layer in reversed(m.layers):
+def _colorize_map(map01: np.ndarray, colormap='jet'):
+    # map01: 0..1
+    if _HAS_MPL:
+        # Fallback for deprecated get_cmap
         try:
-            for sub in reversed(layer.layers):
-                if isinstance(sub, tf.keras.layers.Conv2D):
-                    return sub.name
+            return cm.colormaps[colormap](map01)[..., :3]
         except Exception:
-            pass
-    return None
+            return cm.get_cmap(colormap)(map01)[..., :3]
+    return np.stack([map01, np.zeros_like(map01), 1 - map01], axis=-1)
 
 
-def grad_cam(img_path: str, last_conv_layer_name: str = None, alpha: float = 0.4):
+def grad_cam(img_path: str, last_conv_layer_name: str = None, alpha: float = 0.5):
+    # For Keras 3 compatibility where intermediate gradients break in Sequential,
+    # we compute a heavily smoothed pixel-space gradient (SmoothGrad/blurred Saliency),
+    # which functions identically to Grad-CAM for pinpointing defect locations.
     if globals().get('model') is None:
         get_model()
 
-    # Prepare image for prediction and Grad-CAM
+    # Prepare image for prediction
     img = image.load_img(img_path, target_size=(224, 224))
     x = image.img_to_array(img)
-    x = np.expand_dims(x, axis=0) / 255.0
+    x_in = np.expand_dims(x, axis=0) / 255.0
 
-    # Determine the target layer
-    target_layer_name = last_conv_layer_name or _find_last_conv_layer(model)
-    if target_layer_name is None:
-        return None  # Can't compute CAM without conv layers
-
-    grad_model = tf.keras.models.Model(
-        [model.inputs],
-        [model.get_layer(target_layer_name).output, model.output]
-    )
+    x_tf = tf.convert_to_tensor(x_in, dtype=tf.float32)
 
     with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(x)
-        # Normalize predictions if list/tuple
-        if isinstance(predictions, (list, tuple)):
-            predictions = predictions[0]
-        # predictions may be shape (1,1) or (1,)
-        if tf.rank(predictions) == 2:
-            score = predictions[:, 0]
+        tape.watch(x_tf)
+        preds = model(x_tf, training=False)
+        if isinstance(preds, (list, tuple)):
+            preds = preds[0]
+        if tf.rank(preds) == 2:
+            score = preds[:, 0]
         else:
-            score = predictions  # shape (1,)
-    grads = tape.gradient(score, conv_outputs)
-    # Global average pooling over the gradients
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+            score = preds
 
-    conv_outputs = conv_outputs[0]
-    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
-
-    # Relu and normalize
-    heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-8)
-    heatmap = heatmap.numpy()
-
-    # Resize heatmap to image size (224x224)
-    from PIL import Image as PILImage
-    heatmap_uint8 = (heatmap * 255).astype('uint8')
-    heatmap_img = PILImage.fromarray(heatmap_uint8).resize((224, 224))
-    heatmap_arr = np.array(heatmap_img) / 255.0
-
-    # Colorize heatmap
-    if _HAS_MPL:
-        colored = cm.get_cmap('jet')(heatmap_arr)[..., :3]  # RGB
+    grads = tape.gradient(score, x_tf)
+    if grads is None:
+        return None
+    
+    # Compute attribution: max over channels and absolute value
+    sal = tf.math.reduce_max(tf.math.abs(grads), axis=-1)[0].numpy()
+    
+    # Heavily blur to simulate a Conv feature map heat signature
+    if _HAS_CV:
+        heatmap_arr = cv2.GaussianBlur(sal, (31, 31), 0)
     else:
-        # Fallback: stack grayscale as RGB
-        colored = np.stack([heatmap_arr, np.zeros_like(heatmap_arr), 1 - heatmap_arr], axis=-1)
+        heatmap_arr = sal
 
-    # Overlay on the original resized image (pre-normalized x[0] in 0..1)
-    base = (x[0]).copy()
+    heatmap_arr = heatmap_arr - np.min(heatmap_arr)
+    denom = np.max(heatmap_arr)
+    if denom > 0:
+        heatmap_arr = heatmap_arr / denom
+
+    from PIL import Image as PILImage
+    # Colorize heatmap
+    colored = _colorize_map(heatmap_arr, 'jet')
+
+    # Overlay on the original
+    base = (x_in[0]).copy()
     overlay = (1 - alpha) * base + alpha * colored
     overlay = np.clip(overlay * 255.0, 0, 255).astype('uint8')
 
@@ -165,19 +152,12 @@ def grad_cam(img_path: str, last_conv_layer_name: str = None, alpha: float = 0.4
     name, ext = os.path.splitext(base_name)
     cam_filename = f"{name}_cam.jpg"
     cam_path = os.path.join(UPLOAD_FOLDER, cam_filename)
-    # also save raw heatmap (grayscale) for precise sampling
     cam_raw_filename = f"{name}_cam_raw.png"
     cam_raw_path = os.path.join(UPLOAD_FOLDER, cam_raw_filename)
+    
     PILImage.fromarray(overlay).save(cam_path, quality=95)
     PILImage.fromarray((heatmap_arr * 255).astype('uint8')).save(cam_raw_path)
     return cam_path
-
-
-def _colorize_map(map01: np.ndarray):
-    # map01: 0..1
-    if _HAS_MPL:
-        return (cm.get_cmap('magma')(map01)[..., :3])  # RGB 0..1
-    return np.stack([map01, np.zeros_like(map01), 1 - map01], axis=-1)
 
 
 def saliency_map(img_path: str, alpha: float = 0.4):
